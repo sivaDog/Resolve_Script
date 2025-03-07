@@ -348,15 +348,17 @@ class MainWindow(QMainWindow):
         tool = lst[0]
 
         # settings
-        st = ordered_dict_to_dict(bmd.readfile(str(ch_data.setting_file)))
-        if st is None:
-            self.add2log(f'settingファイルの読み込みに失敗しました。:{str(ch_data.setting_file)}', log.ERROR_COLOR)
-            return False
+        if str(ch_data.setting_file).endswith(".setting"):
+            st = ordered_dict_to_dict(bmd.readfile(str(ch_data.setting_file)))
+            if st is None:
+                self.add2log(f'settingファイルの読み込みに失敗しました。:{str(ch_data.setting_file)}', log.ERROR_COLOR)
+                return False
 
         # apply
         comp.StartUndo('RS Jimaku')
         comp.Lock()
-        tool.LoadSettings(st)
+        if str(ch_data.setting_file).endswith(".setting"):
+            tool.LoadSettings(st)
         tool.StyledText = t
         tool.UseFrameFormatSettings = 0
         tool.Width = width
@@ -405,20 +407,6 @@ class MainWindow(QMainWindow):
             self.add2log(f'MediaPoolにVoiceDropper/{self.text_plus_dir_name}フォルダ見付かりません。', log.ERROR_COLOR)
             return
 
-        text_template = None
-        for clip in text_plus_folder.GetClipList():
-            if clip.GetClipProperty('Clip Name') == f'TextPlus{fps}FPS':
-                text_template = clip
-                break
-
-        if text_template is None:
-            self.add2log(
-                f'MediaPoolにVoiceDropper/{self.text_plus_dir_name}/TextPlus{fps}FPSが見付かりません。',
-                log.ERROR_COLOR,
-            )
-            return
-        self.add2log('Use %s' % text_template.GetClipProperty('Clip Name'))
-
         # get data
         data = self.get_data()
 
@@ -439,6 +427,27 @@ class MainWindow(QMainWindow):
 
             # キャラクター設定
             ch_data = chara_data.from_file(f)
+
+            # 字幕設定を.settingfileでするかVoiceDropperフォルダから探すか選択
+            if str(ch_data.setting_file).endswith(".setting"):
+                target_clip_name = f'TextPlus{fps}FPS'
+            else:
+                target_clip_name = ch_data.track_name
+
+            # テキスト+を設定
+            text_template = None
+            for clip in text_plus_folder.GetClipList():
+                if clip.GetClipProperty('Clip Name') == target_clip_name:
+                    text_template = clip
+                    break
+
+            if text_template is None:
+                self.add2log(
+                    f'MediaPoolにVoiceDropper/{self.text_plus_dir_name}/{target_clip_name}が見付かりません。',
+                    log.ERROR_COLOR,
+                )
+                return
+            self.add2log('Use %s' % text_template.GetClipProperty('Clip Name'))
 
             # トラック
             audio_index = track_name2index(timeline, 'audio', ch_data.track_name + '_a')
